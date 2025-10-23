@@ -45,6 +45,7 @@ if __name__ == "__main__":
             "engineai_pm01",
             "pal_talos",
             "pnd_adam_lite",
+            "pnd_adam_sp",
         ],
         default="unitree_g1",
     )
@@ -77,6 +78,13 @@ if __name__ == "__main__":
         "--motion_fps",
         default=30,
         type=int,
+    )
+
+    parser.add_argument(
+        "--compressed",
+        action="store_true",
+        default=False,
+        help="Use compressed npz format to reduce file size.",
     )
 
     args = parser.parse_args()
@@ -166,26 +174,34 @@ if __name__ == "__main__":
             qpos_list.append(qpos)
 
     if args.save_path is not None:
-        import pickle
-
         root_pos = np.array([qpos[:3] for qpos in qpos_list])
-        # save from wxyz to xyzw
-        root_rot = np.array([qpos[3:7][[1, 2, 3, 0]] for qpos in qpos_list])
+        # save as wxyz
+        root_rot = np.array([qpos[3:7] for qpos in qpos_list])
         dof_pos = np.array([qpos[7:] for qpos in qpos_list])
         local_body_pos = None
         body_names = None
 
-        motion_data = {
-            "fps": motion_fps,
+        # Prepare data dictionary for npz format
+        save_dict = {
+            "fps": np.array([motion_fps]),  # Convert to array for npz
             "root_pos": root_pos,
             "root_rot": root_rot,
             "dof_pos": dof_pos,
-            "local_body_pos": local_body_pos,
-            "link_body_list": body_names,
         }
-        with open(args.save_path, "wb") as f:
-            pickle.dump(motion_data, f)
-        print(f"Saved to {args.save_path}")
+
+        # Only add optional fields if they are not None
+        if local_body_pos is not None:
+            save_dict["local_body_pos"] = local_body_pos
+        if body_names is not None:
+            save_dict["link_body_list"] = body_names
+
+        # Save as npz or compressed npz
+        if args.compressed:
+            np.savez_compressed(args.save_path, **save_dict)
+            print(f"Saved to {args.save_path} (compressed)")
+        else:
+            np.savez(args.save_path, **save_dict)
+            print(f"Saved to {args.save_path}")
 
     # Close progress bar
     pbar.close()

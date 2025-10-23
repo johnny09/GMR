@@ -6,7 +6,9 @@ ASSET_ROOT = HERE / ".." / "assets"
 
 ROBOT_XML_DICT = {
     "unitree_g1": ASSET_ROOT / "unitree_g1" / "g1_mocap_29dof.xml",
-    "unitree_g1_with_hands": ASSET_ROOT / "unitree_g1" / "g1_mocap_29dof_with_hands.xml",
+    "unitree_g1_with_hands": ASSET_ROOT
+    / "unitree_g1"
+    / "g1_mocap_29dof_with_hands.xml",
     "unitree_h1": ASSET_ROOT / "unitree_h1" / "h1.xml",
     "unitree_h1_2": ASSET_ROOT / "unitree_h1_2" / "h1_2_handless.xml",
     "booster_t1": ASSET_ROOT / "booster_t1" / "T1_serial.xml",
@@ -20,13 +22,14 @@ ROBOT_XML_DICT = {
     "berkeley_humanoid_lite": ASSET_ROOT / "berkeley_humanoid_lite" / "bhl_scene.xml",
     "booster_k1": ASSET_ROOT / "booster_k1" / "K1_serial.xml",
     "pnd_adam_lite": ASSET_ROOT / "pnd_adam_lite" / "scene.xml",
+    "pnd_adam_sp": ASSET_ROOT / "pnd_adam_sp" / "scene.xml",
     "tienkung": ASSET_ROOT / "tienkung" / "mjcf" / "tienkung.xml",
     "pal_talos": ASSET_ROOT / "pal_talos" / "talos.xml",
 }
 
 IK_CONFIG_DICT = {
     # offline data
-    "smplx":{
+    "smplx": {
         "unitree_g1": IK_CONFIG_ROOT / "smplx_to_g1.json",
         "unitree_g1_with_hands": IK_CONFIG_ROOT / "smplx_to_g1.json",
         "unitree_h1": IK_CONFIG_ROOT / "smplx_to_h1.json",
@@ -44,7 +47,7 @@ IK_CONFIG_DICT = {
         "pnd_adam_lite": IK_CONFIG_ROOT / "smplx_to_adam.json",
         "tienkung": IK_CONFIG_ROOT / "smplx_to_tienkung.json",
     },
-    "bvh_lafan1":{
+    "bvh_lafan1": {
         "unitree_g1": IK_CONFIG_ROOT / "bvh_lafan1_to_g1.json",
         "unitree_g1_with_hands": IK_CONFIG_ROOT / "bvh_lafan1_to_g1.json",
         "booster_t1_29dof": IK_CONFIG_ROOT / "bvh_lafan1_to_t1_29dof.json",
@@ -52,15 +55,17 @@ IK_CONFIG_DICT = {
         "stanford_toddy": IK_CONFIG_ROOT / "bvh_lafan1_to_toddy.json",
         "engineai_pm01": IK_CONFIG_ROOT / "bvh_lafan1_to_pm01.json",
         "pal_talos": IK_CONFIG_ROOT / "bvh_to_talos.json",
+        "pnd_adam_lite": IK_CONFIG_ROOT / "bvh_lafan1_to_adam_lite.json",
+        "pnd_adam_sp": IK_CONFIG_ROOT / "bvh_lafan1_to_adam_sp.json",
     },
-    "bvh_nokov":{
+    "bvh_nokov": {
         "unitree_g1": IK_CONFIG_ROOT / "bvh_nokov_to_g1.json",
     },
-    "fbx":{
+    "fbx": {
         "unitree_g1": IK_CONFIG_ROOT / "fbx_to_g1.json",
         "unitree_g1_with_hands": IK_CONFIG_ROOT / "fbx_to_g1.json",
     },
-    "fbx_offline":{
+    "fbx_offline": {
         "unitree_g1": IK_CONFIG_ROOT / "fbx_offline_to_g1.json",
     },
 }
@@ -82,6 +87,7 @@ ROBOT_BASE_DICT = {
     "berkeley_humanoid_lite": "imu_2",
     "booster_k1": "Trunk",
     "pnd_adam_lite": "pelvis",
+    "pnd_adam_sp": "pelvis",
     "tienkung": "Base_link",
     "pal_talos": "base_link",
 }
@@ -102,6 +108,7 @@ VIEWER_CAM_DISTANCE_DICT = {
     "berkeley_humanoid_lite": 2.0,
     "booster_k1": 2.0,
     "pnd_adam_lite": 3.0,
+    "pnd_adam_sp": 3.0,
     "tienkung": 3.0,
     "pal_talos": 3.0,
 }

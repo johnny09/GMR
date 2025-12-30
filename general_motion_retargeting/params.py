@@ -58,6 +58,9 @@ IK_CONFIG_DICT = {
         "pnd_adam_lite": IK_CONFIG_ROOT / "bvh_lafan1_to_adam_lite.json",
         "pnd_adam_sp": IK_CONFIG_ROOT / "bvh_lafan1_to_adam_sp.json",
     },
+    "bvh_noitom": {
+        "pnd_adam_sp": IK_CONFIG_ROOT / "bvh_noitom_to_adam_sp.json",
+    },
     "bvh_nokov": {
         "unitree_g1": IK_CONFIG_ROOT / "bvh_nokov_to_g1.json",
     },

@@ -1,6 +1,8 @@
 import argparse
 import pathlib
 import os
+import time
+import gc
 import mujoco as mj
 import numpy as np
 from tqdm import tqdm
@@ -9,6 +11,7 @@ import torch
 from general_motion_retargeting.utils.lafan1 import load_bvh_file
 from general_motion_retargeting.kinematics_model import KinematicsModel
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
+from general_motion_retargeting import RobotMotionViewer
 from rich import print
 
 
@@ -32,7 +35,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--format",
-        choices=["lafan1", "nokov"],
+        choices=["lafan1", "nokov","noitom"],
         default="lafan1",
         help="BVH format type.",
     )
@@ -95,6 +98,19 @@ if __name__ == "__main__":
         help="Adjust height per frame (only works with --height_adjust).",
     )
 
+    parser.add_argument(
+        "--record_video",
+        action="store_true",
+        default=False,
+    )
+
+    parser.add_argument(
+        "--video_path",
+        type=str,
+        default=None,
+        help="Video output path. If None, videos will be saved in {tgt_folder}/videos/ with same filename as npz.",
+    )
+
     args = parser.parse_args()
 
     src_folder = args.src_folder
@@ -154,7 +170,7 @@ if __name__ == "__main__":
                 smplx_data = bvh_data_frames[curr_frame]
 
                 # Retarget till convergence
-                qpos, qvel = retargeter.retarget(smplx_data)
+                qpos, qvel = retargeter.retarget(smplx_data,offset_to_ground=True)
 
                 qpos_list.append(qpos.copy())
                 qvel_list.append(qvel.copy())
@@ -245,5 +261,87 @@ if __name__ == "__main__":
         except Exception as e:
             print(f"Error saving {tgt_file_path}: {e}")
             continue
+
+        # Generate video if requested
+        if args.record_video:
+            try:
+                # Determine video path
+                # If video_path is specified, use it as base directory (or file path template)
+                if args.video_path is not None:
+                    # Check if it's an existing directory or ends with /
+                    if os.path.isdir(args.video_path) or args.video_path.endswith("/") or args.video_path.endswith("\\"):
+                        video_dir = args.video_path.rstrip("/\\")
+                        # Use relative path from tgt_folder to preserve directory structure
+                        rel_path = os.path.relpath(tgt_file_path, tgt_folder)
+                        video_file_path = os.path.join(video_dir, rel_path).replace(".npz", ".mp4")
+                    else:
+                        # Treat as file path template - replace filename part
+                        video_dir = os.path.dirname(args.video_path)
+                        if video_dir:
+                            # Has directory component, replace filename
+                            video_file_path = os.path.join(
+                                video_dir, os.path.basename(tgt_file_path).replace(".npz", ".mp4")
+                            )
+                        else:
+                            # No directory, use as-is (unlikely in batch mode)
+                            video_file_path = args.video_path
+                else:
+                    # Default: save videos in videos subdirectory of tgt_folder, preserving relative structure
+                    video_file_path = os.path.join(
+                        tgt_folder, "videos", os.path.relpath(tgt_file_path, tgt_folder).replace(".npz", ".mp4")
+                    )
+
+                # Create video directory if needed
+                os.makedirs(os.path.dirname(video_file_path), exist_ok=True)
+
+                # Check if video already exists
+                if os.path.exists(video_file_path) and not args.override:
+                    print(f"Skipping video generation for {bvh_file_path} because {video_file_path} exists")
+                else:
+                    # Initialize RobotMotionViewer for this video
+                    robot_motion_viewer = None
+                    try:
+                        robot_motion_viewer = RobotMotionViewer(
+                            robot_type=args.robot,
+                            motion_fps=src_fps,
+                            transparent_robot=0,
+                            record_video=True,
+                            video_path=video_file_path,
+                        )
+
+                        # Render all frames
+                        for frame_idx in range(num_frames):
+                            robot_motion_viewer.step(
+                                root_pos=root_pos[frame_idx],
+                                root_rot=root_rot[frame_idx],
+                                dof_pos=dof_pos[frame_idx],
+                                rate_limit=False,
+                                follow_camera=True,
+                            )
+
+                        # Close viewer to finalize video (this also closes mp4_writer)
+                        robot_motion_viewer.close()
+                        robot_motion_viewer = None
+                        
+                        # Force garbage collection to ensure resources are released
+                        gc.collect()
+                        
+                        # Add delay to ensure resources are fully released before next video
+                        time.sleep(0.3)
+                        
+                        print(f"Saved video to {video_file_path}")
+                    except Exception as video_error:
+                        # Ensure cleanup in case of exception
+                        if robot_motion_viewer is not None:
+                            try:
+                                robot_motion_viewer.close()
+                            except:
+                                pass
+                            robot_motion_viewer = None
+                        raise video_error
+
+            except Exception as e:
+                print(f"Error generating video for {bvh_file_path}: {e}")
+                continue
 
     print(f"Done. Saved {len(bvh_files)} files to {tgt_folder}")

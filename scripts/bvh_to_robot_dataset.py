@@ -7,7 +7,7 @@ from tqdm import tqdm
 import torch
 import pickle
 
-from general_motion_retargeting.utils.lafan1 import load_lafan1_file
+from general_motion_retargeting.utils.lafan1 import load_bvh_file
 from general_motion_retargeting.kinematics_model import KinematicsModel
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from rich import print
@@ -73,16 +73,16 @@ if __name__ == "__main__":
             
             # Load LAFAN1 trajectory
             try:
-                lafan1_data_frames, actual_human_height = load_lafan1_file(bvh_file_path)
-                src_fps = 30  # LAFAN1 data is typically 30 FPS
+                lafan1_data_frames, actual_human_height = load_bvh_file(bvh_file_path)
+                src_fps = 180  # LAFAN1 data is typically 30 FPS
             except Exception as e:
                 print(f"Error loading {bvh_file_path}: {e}")
                 continue
 
             
-            # Initialize the retargeting system
+            # Initialize the retargeting system (IK_CONFIG_DICT uses bvh_lafan1, not "bvh")
             retarget = GMR(
-                src_human="bvh",
+                src_human="bvh_lafan1",
                 tgt_robot=args.robot,
                 actual_human_height=actual_human_height,
             )
@@ -98,7 +98,6 @@ if __name__ == "__main__":
                 
                 # Retarget till convergence
                 qpos = retarget.retarget(smplx_data)
-                
                 qpos_list.append(qpos.copy())
             
             qpos_list = np.array(qpos_list)

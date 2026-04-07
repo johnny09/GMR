@@ -5,6 +5,25 @@ import general_motion_retargeting.utils.lafan_vendor.utils as utils
 from general_motion_retargeting.utils.lafan_vendor.extract import read_bvh
 
 
+def _alias_spine2_for_lafan_ik(result):
+    """
+    bvh_lafan1 IK expects a Spine2 body. LAFAN1 BVHs have Spine2; Mixamo / PND often have
+    Hips -> Spine -> Spine1 -> Neck (no Spine2). Duplicate Spine1 (or Spine) pose as Spine2.
+    """
+    if "Spine2" in result:
+        return
+    if "Spine1" in result:
+        src = "Spine1"
+    elif "Spine" in result:
+        src = "Spine"
+    else:
+        raise KeyError(
+            "BVH has no Spine2 (LAFAN1). Add Spine1 or Spine (Mixamo/PND) for IK alias."
+        )
+    pos, rot = result[src]
+    result["Spine2"] = [np.asarray(pos, dtype=np.float64).copy(), np.asarray(rot, dtype=np.float64).copy()]
+
+
 def load_bvh_file(bvh_file, format="lafan1"):
     """
     Must return a dictionary with the following structure:
@@ -29,12 +48,26 @@ def load_bvh_file(bvh_file, format="lafan1"):
             result[bone] = [position, orientation]
             
         if format == "lafan1":
-            # Add modified foot pose
-            result["LeftFootMod"] = [result["LeftFoot"][0], result["LeftToe"][1]]
-            result["RightFootMod"] = [result["RightFoot"][0], result["RightToe"][1]]
+            # LAFAN1: LeftToe / RightToe. Mixamo / PND mocap: LeftToeBase / RightToeBase.
+            if "LeftToe" in result:
+                left_toe_rot = result["LeftToe"][1]
+            elif "LeftToeBase" in result:
+                left_toe_rot = result["LeftToeBase"][1]
+            else:
+                raise KeyError("Need LeftToe (LAFAN1) or LeftToeBase (Mixamo/PND) in BVH")
+            if "RightToe" in result:
+                right_toe_rot = result["RightToe"][1]
+            elif "RightToeBase" in result:
+                right_toe_rot = result["RightToeBase"][1]
+            else:
+                raise KeyError("Need RightToe (LAFAN1) or RightToeBase (Mixamo/PND) in BVH")
+            result["LeftFootMod"] = [result["LeftFoot"][0], left_toe_rot]
+            result["RightFootMod"] = [result["RightFoot"][0], right_toe_rot]
+            _alias_spine2_for_lafan_ik(result)
         elif format == "nokov":
             result["LeftFootMod"] = [result["LeftFoot"][0], result["LeftToeBase"][1]]
             result["RightFootMod"] = [result["RightFoot"][0], result["RightToeBase"][1]]
+            _alias_spine2_for_lafan_ik(result)
         else:
             raise ValueError(f"Invalid format: {format}")
             

@@ -136,7 +136,9 @@ def read_bvh(filename, start=None, end=None, order=None):
             i += 1
             continue
 
-        dmatch = line.strip().split(' ')
+        # split() without sep splits on arbitrary whitespace (tabs / multiple spaces);
+        # split(' ') leaves '' entries between runs of spaces and breaks float().
+        dmatch = line.strip().split()
         if dmatch:
             data_block = np.array(list(map(float, dmatch)))
             N = len(parents)

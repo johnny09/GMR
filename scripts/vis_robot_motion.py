@@ -23,6 +23,8 @@ if __name__ == "__main__":
     
     motion_data, motion_fps, motion_root_pos, motion_root_rot, motion_dof_pos, motion_local_body_pos, motion_link_body_list = load_robot_motion(robot_motion_path)
     
+    print("motion_fps:",motion_fps)
+
     env = RobotMotionViewer(robot_type=robot_type,
                             motion_fps=motion_fps,
                             camera_follow=False,

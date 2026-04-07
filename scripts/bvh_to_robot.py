@@ -135,7 +135,7 @@ if __name__ == "__main__":
         smplx_data = lafan1_data_frames[i]
 
         # retarget
-        qpos = retargeter.retarget(smplx_data)
+        qpos,qvel = retargeter.retarget(smplx_data)
         
 
         # visualize

@@ -5,6 +5,16 @@ import general_motion_retargeting.utils.lafan_vendor.utils as utils
 from general_motion_retargeting.utils.lafan_vendor.extract import read_bvh
 
 
+def _alias_spine2(result):
+    """Map non-LAFAN skeleton spine names to Spine2 expected by IK configs."""
+    if "Spine2" in result:
+        return
+    if "Spine1" in result:
+        result["Spine2"] = [result["Spine1"][0], result["Spine1"][1]]
+    elif "Spine" in result:
+        result["Spine2"] = [result["Spine"][0], result["Spine"][1]]
+
+
 def load_bvh_file(bvh_file, format="lafan1"):
     """
     Must return a dictionary with the following structure:
@@ -29,13 +39,22 @@ def load_bvh_file(bvh_file, format="lafan1"):
             result[bone] = [position, orientation]
             
         if format == "lafan1":
-            # Add modified foot pose
-            result["LeftFootMod"] = [result["LeftFoot"][0], result["LeftToe"][1]]
-            result["RightFootMod"] = [result["RightFoot"][0], result["RightToe"][1]]
+            # LAFAN1: LeftToe/RightToe; some datasets: LeftToeBase/RightToeBase
+            left_toe = "LeftToe" if "LeftToe" in result else "LeftToeBase"
+            right_toe = "RightToe" if "RightToe" in result else "RightToeBase"
+            result["LeftFootMod"] = [result["LeftFoot"][0], result[left_toe][1]]
+            result["RightFootMod"] = [result["RightFoot"][0], result[right_toe][1]]
+            _alias_spine2(result)
         elif format == "nokov":
             result["LeftFootMod"] = [result["LeftFoot"][0], result["LeftToeBase"][1]]
             result["RightFootMod"] = [result["RightFoot"][0], result["RightToeBase"][1]]
+            _alias_spine2(result)
         elif format == "noitom":
+            result["LeftFootMod"] = [result["LeftFoot"][0], result["LeftFoot"][1]]
+            result["RightFootMod"] = [result["RightFoot"][0], result["RightFoot"][1]]
+            _alias_spine2(result)
+        elif format == "mocap":
+            # FBX-like foot handling: foot position + foot orientation.
             result["LeftFootMod"] = [result["LeftFoot"][0], result["LeftFoot"][1]]
             result["RightFootMod"] = [result["RightFoot"][0], result["RightFoot"][1]]
         else:

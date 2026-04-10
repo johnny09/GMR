@@ -7,7 +7,7 @@ from tqdm import tqdm
 import torch
 import pickle
 
-from general_motion_retargeting.utils.lafan1 import load_lafan1_file
+from general_motion_retargeting.utils.lafan1 import load_bvh_file
 from general_motion_retargeting.kinematics_model import KinematicsModel
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from rich import print
@@ -46,9 +46,23 @@ if __name__ == "__main__":
         default=30,
         type=int,
     )
+    parser.add_argument(
+        "--fps",
+        default=None,
+        type=int,
+        help="Alias of --target_fps.",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["lafan1", "nokov", "noitom", "mocap"],
+        default="lafan1",
+    )
 
     args = parser.parse_args()
     
+    if args.fps is not None:
+        args.target_fps = args.fps
+
     src_folder = args.src_folder
     tgt_folder = args.tgt_folder
 
@@ -73,8 +87,10 @@ if __name__ == "__main__":
             
             # Load LAFAN1 trajectory
             try:
-                lafan1_data_frames, actual_human_height = load_lafan1_file(bvh_file_path)
-                src_fps = 30  # LAFAN1 data is typically 30 FPS
+                lafan1_data_frames, actual_human_height = load_bvh_file(
+                    bvh_file_path, format=args.format
+                )
+                src_fps = args.target_fps
             except Exception as e:
                 print(f"Error loading {bvh_file_path}: {e}")
                 continue
@@ -82,7 +98,7 @@ if __name__ == "__main__":
             
             # Initialize the retargeting system
             retarget = GMR(
-                src_human="bvh",
+                src_human=f"bvh_{args.format}",
                 tgt_robot=args.robot,
                 actual_human_height=actual_human_height,
             )
@@ -97,55 +113,43 @@ if __name__ == "__main__":
                 smplx_data = lafan1_data_frames[curr_frame]
                 
                 # Retarget till convergence
-                qpos = retarget.retarget(smplx_data)
-                
+                result = retarget.retarget(smplx_data)
+                qpos = result[0] if isinstance(result, tuple) else result
                 qpos_list.append(qpos.copy())
             
             qpos_list = np.array(qpos_list)
 
-            # Initialize the forward kinematics
-            device = "cuda:0"
-            kinematics_model = KinematicsModel(retarget.xml_file, device=device)
-            
             root_pos = qpos_list[:, :3]
             root_rot = qpos_list[:, 3:7]
             root_rot[:, [0, 1, 2, 3]] = root_rot[:, [1, 2, 3, 0]]
             dof_pos = qpos_list[:, 7:]
             num_frames = root_pos.shape[0]
-            
-            # obtain local body pos
-            identity_root_pos = torch.zeros((num_frames, 3), device=device)
-            identity_root_rot = torch.zeros((num_frames, 4), device=device)
-            identity_root_rot[:, -1] = 1.0
-            local_body_pos, _ = kinematics_model.forward_kinematics(
-                identity_root_pos, 
-                identity_root_rot, 
-                torch.from_numpy(dof_pos).to(device=device, dtype=torch.float)
-            )
-            body_names = kinematics_model.body_names
 
-            HEIGHT_ADJUST = False
-            PERFRAME_ADJUST = False
-            if HEIGHT_ADJUST:
-                body_pos, _ = kinematics_model.forward_kinematics(
-                    torch.from_numpy(root_pos).to(device=device, dtype=torch.float),
-                    torch.from_numpy(root_rot).to(device=device, dtype=torch.float),
+            # Attempt forward kinematics for local_body_pos (optional, may fail for scene XMLs)
+            local_body_pos_np = None
+            body_names = None
+            try:
+                device = "cuda:0"
+                kinematics_model = KinematicsModel(retarget.xml_file, device=device)
+
+                identity_root_pos = torch.zeros((num_frames, 3), device=device)
+                identity_root_rot = torch.zeros((num_frames, 4), device=device)
+                identity_root_rot[:, -1] = 1.0
+                local_body_pos, _ = kinematics_model.forward_kinematics(
+                    identity_root_pos,
+                    identity_root_rot,
                     torch.from_numpy(dof_pos).to(device=device, dtype=torch.float)
                 )
-                ground_offset = 0.00
-                if not PERFRAME_ADJUST:
-                    lowest_height = torch.min(body_pos[..., 2]).item()
-                    root_pos[:, 2] = root_pos[:, 2] - lowest_height + ground_offset
-                else:
-                    for i in range(root_pos.shape[0]):
-                        lowest_body_part = torch.min(body_pos[i, :, 2])
-                        root_pos[i, 2] = root_pos[i, 2] - lowest_body_part + ground_offset
+                body_names = kinematics_model.body_names
+                local_body_pos_np = local_body_pos.detach().cpu().numpy()
+            except Exception as e:
+                print(f"Warning: Could not compute local_body_pos for {bvh_file_path}: {e}")
 
             motion_data = {
                 "root_pos": root_pos,
                 "root_rot": root_rot,
                 "dof_pos": dof_pos,
-                "local_body_pos": local_body_pos.detach().cpu().numpy(),
+                "local_body_pos": local_body_pos_np,
                 "fps": src_fps,
                 "link_body_list": body_names,
             }

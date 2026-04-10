@@ -136,7 +136,8 @@ def read_bvh(filename, start=None, end=None, order=None):
             i += 1
             continue
 
-        dmatch = line.strip().split(' ')
+        # Use default split to handle variable-width whitespace in BVH motion lines.
+        dmatch = line.strip().split()
         if dmatch:
             data_block = np.array(list(map(float, dmatch)))
             N = len(parents)
